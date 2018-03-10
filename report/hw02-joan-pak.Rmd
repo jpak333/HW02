@@ -1,0 +1,105 @@
+---
+title: "HW02 - Shot Charts"
+author: "Joan Pak"
+output: github_document
+---
+
+# Summary Table
+
+```{r setup, include=FALSE}
+getwd()
+dat <- read.csv("../data/shots-data.csv")
+knitr::opts_chunk$set(echo=TRUE,fig.path="../images")
+
+library(dplyr)
+
+# Total Shots by Player
+name_total <- data.frame(arrange(summarise(group_by(dat,name),total=n()),desc(total)))
+name_total
+
+# Effective Shooting % by Player
+madeshot <- dat[dat$shot_made_flag == "made shot",]
+madeshot <- summarize(group_by(madeshot,name=madeshot$name),made=n())
+shot <- merge(madeshot,name_total,by.x="name",by.y="name")
+effective_shooting <- shot %>%
+  mutate(perc_made=made*100/total) %>%
+  arrange(desc(perc_made))
+effective_shooting
+
+# 2PT Effective Shooting % by Player
+two_pt <- dat %>%
+  filter(shot_type=="2PT Field Goal") %>%
+  group_by(name) %>%
+  summarize(two=n()) 
+two_pt <- merge(two_pt,name_total,by="name") 
+two_pt <- two_pt %>%
+  mutate(perc_two=two*100/total) %>%
+  arrange(desc(perc_two))
+two_pt
+
+# 3PT Effective Shooting % by Player
+three_pt <- dat %>%
+  filter(shot_type=="3PT Field Goal") %>%
+  group_by(name) %>%
+  summarize(three=n()) 
+three_pt <- merge(three_pt,name_total,by="name") 
+three_pt <- three_pt %>%
+  mutate(perc_three=three*100/total) %>%
+  arrange(desc(perc_three))
+three_pt
+
+```
+
+# Shooting Distance
+```{r}
+# dplyr table
+library(ggplot2)
+
+dis_shot <- dat%>%
+  filter(shot_made_flag=="made shot") %>%
+  select(shot_distance,shot_made_flag)%>%
+  group_by(shot_distance) %>%
+  summarize(made_shot=n())
+dis_shot
+
+dis <- dat %>%
+  select(shot_distance) %>%
+  group_by(shot_distance) %>%
+  count()
+dis <- merge(dis_shot,dis,by="shot_distance")
+
+table1 <- dis %>%
+  mutate(made_shot_prop=made_shot/n) %>%
+  select(shot_distance,made_shot_prop)
+table1
+
+# ggplot
+ggplot(data=table1) +
+  geom_point(aes(x=shot_distance,y=made_shot_prop))
+# Questions
+# The pattern of the dots is similar to a negative exponential graph with one extreme outlier at (50, 1.0).
+# The distance and making shots do not seem to have a strong correlation, so it does not matter if the distance it shorter or longer to make more effective shots.
+# As we can see at distance 50, the proportion of shots is at 1.0, so if we go beyond, the chance of making a shot becomes a lot smaller. 
+# The distances from 0 to 3 tend to have a 50% or more of making the shot. 
+
+```
+
+# Total Number of Shots By Minute of Occurrence 
+```{r}
+shot_min <- dat %>%
+  select(name,shot_made_flag,minute) %>%
+  filter(shot_made_flag=="made shot") %>%
+  group_by(name,minute) %>%
+  summarize(shots=n())
+
+rects <- data.frame(xstart=c(1,24),xend=c(12,36),col="grey69")
+
+ggplot(data=shot_min) +
+  geom_point(aes(x=minute,y=shots),col="blue") +
+  facet_wrap( ~ name, ncol=3) +
+  theme_minimal() +
+  geom_path(aes(x=minute,y=shots),linejoin="round",lineend="butt",col="blue") +
+  scale_x_continuous(breaks=c(1,12,24,36,48)) +
+  geom_rect(data=rects,aes(xmin=xstart,xmax=xend,ymin=0,ymax=30,fill=col),alpha=0.4)
+  
+```
